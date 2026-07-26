@@ -8,15 +8,12 @@
 # Example:
 # ads.example.com
 
-# RuTube: ad exchange (ssp), ad/analytics beacons and telemetry. a.rutube.ru
-# and yast.rutube.ru are CNAMEs of tcpend.rutube.ru, the beacon collector.
-# Video and the site itself stay on rutube.ru / vcdn.biz - do not block those.
+# RuTube: ad exchange (ssp), ad/analytics beacons and telemetry.
+# Do not block: rutube.ru itself, vcdn.biz, rtbcdn.ru (the RuTube CDN -
+# pic.rtbcdn.ru serves thumbnails, salam-*.rtbcdn.ru serve the video) and
+# tcpend.rutube.ru (shared CNAME target, goya.rutube.ru points there too).
 ssp.rutube.ru
 a.rutube.ru
 yast.rutube.ru
-tcpend.rutube.ru
 log.rutube.ru
 weborama-tech.ru
-
-# RTB ad CDN (serves the pre-roll creatives, *.rtbcdn.ru).
-rtbcdn.ru
