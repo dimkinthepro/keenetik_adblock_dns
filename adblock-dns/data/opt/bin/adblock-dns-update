@@ -71,6 +71,13 @@ normalize_list() {
         tr 'A-Z' 'a-z' | grep -E '^[a-z0-9._-]+\.[a-z0-9-]+$' | sort -u
 }
 
+# Turns a domain-per-line stream into dnsmasq address= rules. Both families
+# are emitted: an IPv4-only rule leaves AAAA to be forwarded upstream, and a
+# client with IPv6 then reaches the ad host anyway.
+block_rules() {
+    awk '{ print "address=/" $0 "/0.0.0.0"; print "address=/" $0 "/::" }'
+}
+
 # Builds blacklist.conf from BLACKLIST_FILE minus WHITELIST_FILE.
 # Whitelist entries also get server=/domain/upstream lines: the most
 # specific match wins in dnsmasq, so they punch holes in blocked zones.
@@ -83,10 +90,10 @@ gen_blacklist_conf() {
     {
         echo "# Generated from $BLACKLIST_FILE / $WHITELIST_FILE. Do not edit."
         if [ -s "$wl" ]; then
-            grep -vxF -f "$wl" "$bl" | sed 's|.*|address=/&/0.0.0.0|'
+            grep -vxF -f "$wl" "$bl" | block_rules
             sed "s|.*|server=/&/$first_upstream|" "$wl"
         else
-            sed 's|.*|address=/&/0.0.0.0|' "$bl"
+            block_rules < "$bl"
         fi
     } > "$BLACKLIST_CONF"
     rm -f "$bl" "$wl"
@@ -167,9 +174,11 @@ download_blocklists() {
     fi
     rm -f "$wl"
 
-    awk '{print "0.0.0.0", $1}' "$domains" > "$BLOCK_HOSTS.new" && \
+    # Same reasoning as in block_rules(): without the :: line an AAAA query
+    # for a blocked host is forwarded upstream and answered for real.
+    awk '{ print "0.0.0.0", $1; print "::", $1 }' "$domains" > "$BLOCK_HOSTS.new" && \
         mv "$BLOCK_HOSTS.new" "$BLOCK_HOSTS"
-    log "blocklist updated: $(wc -l < "$BLOCK_HOSTS") domains blocked"
+    log "blocklist updated: $(wc -l < "$domains") domains blocked"
 }
 
 reload_dnsmasq() {
