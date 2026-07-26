@@ -1,0 +1,10 @@
+# Ad/tracker domains from v2fly/domain-list-community.
+# https://github.com/v2fly/domain-list-community
+#
+# TYPE  - v2fly (tarball of the repo, "include:" directives are resolved
+#         recursively) or hosts (plain hosts-file / domain-per-line URL).
+# URL   - where to download from.
+# LIST  - v2fly only: name of the list under data/ to start from.
+TYPE="v2fly"
+URL="https://github.com/v2fly/domain-list-community/archive/refs/heads/master.tar.gz"
+LIST="category-ads-all"

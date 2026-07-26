@@ -1,0 +1,13 @@
+Package: adblock-dns
+Version: 0.1.0
+Architecture: all
+Maintainer: dimult22@gmail.com
+Section: net
+Priority: optional
+Depends: dnsmasq-full, wget-ssl
+Description: Local ad-blocking DNS server for Keenetic (Entware).
+ Runs dnsmasq, blocks ad/tracker domains from configurable blocklists
+ and forwards everything else to a configurable upstream DNS
+ (Google DNS 8.8.8.8/8.8.4.4 by default).
+ Listens on 127.0.0.1:553 by default and is meant to be registered in
+ the router as a name-server, leaving port 53 to the built-in DNS proxy.

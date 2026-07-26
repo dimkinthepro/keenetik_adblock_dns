@@ -1,0 +1,16 @@
+# Hand-picked blocked domains, one per line (subdomains are blocked too).
+# Empty lines and everything after "#" is ignored, case does not matter.
+#
+# This is the file to edit: blacklist.txt is generated from this directory
+# and these entries are placed on top of it. Apply changes with:
+#   adblock-dns-blacklist && /opt/etc/init.d/S56adblock-dns restart
+#
+# Example:
+# ads.example.com
+
+# RuTube: ad exchange (ssp), ad/analytics beacon and telemetry.
+# Video and the site itself stay on rutube.ru / vcdn.biz - do not block those.
+ssp.rutube.ru
+a.rutube.ru
+log.rutube.ru
+weborama-tech.ru

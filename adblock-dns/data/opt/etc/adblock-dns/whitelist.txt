@@ -1,0 +1,6 @@
+# Domains excluded from blocking, one per line.
+# Applies to blacklist.txt and downloaded blocklists; also unblocks a
+# subdomain of a blacklisted zone (e.g. mail.126.com while 126.com is
+# blocked). Apply changes with: /opt/etc/init.d/S56adblock-dns restart
+# Example:
+# s.youtube.com

@@ -1,0 +1,11 @@
+#!/bin/sh
+
+ENABLED=yes
+PROCS=dnsmasq
+ARGS="-C /opt/var/adblock-dns/dnsmasq.conf"
+PREARGS=""
+PRECMD="/opt/bin/adblock-dns-update genconf"
+DESC="adblock-dns (dnsmasq)"
+PATH=/opt/sbin:/opt/bin:/opt/usr/sbin:/opt/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+. /opt/etc/init.d/rc.func

@@ -1,0 +1,4 @@
+/opt/etc/adblock-dns/adblock-dns.conf
+/opt/etc/adblock-dns/whitelist.txt
+/opt/etc/adblock-dns/blacklist-source/manual.txt
+/opt/etc/adblock-dns/blacklist-source/v2fly-ads.source

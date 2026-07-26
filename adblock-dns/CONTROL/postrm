@@ -1,0 +1,12 @@
+#!/bin/sh
+
+STOCK_INIT="/opt/etc/init.d/S56dnsmasq"
+STOCK_DISABLED="/opt/etc/init.d/.S56dnsmasq.disabled-by-adblock-dns"
+
+if [ -f "$STOCK_DISABLED" ] && [ ! -f "$STOCK_INIT" ]; then
+    mv "$STOCK_DISABLED" "$STOCK_INIT"
+    echo "adblock-dns: stock dnsmasq autostart restored"
+fi
+
+rm -rf /opt/var/adblock-dns
+exit 0

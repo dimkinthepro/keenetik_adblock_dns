@@ -1,0 +1,53 @@
+#!/bin/sh
+
+STOCK_INIT="/opt/etc/init.d/S56dnsmasq"
+STOCK_DISABLED="/opt/etc/init.d/.S56dnsmasq.disabled-by-adblock-dns"
+
+mkdir -p /opt/var/adblock-dns
+
+# dnsmasq-full ships its own autostart with the same process name, so both
+# would fight over pidof/killall in rc.func and over the listening port.
+if [ -f "$STOCK_INIT" ]; then
+    "$STOCK_INIT" stop >/dev/null 2>&1
+    mv "$STOCK_INIT" "$STOCK_DISABLED"
+    echo "adblock-dns: stock dnsmasq autostart disabled ($STOCK_DISABLED)"
+fi
+
+cat <<'EOF'
+
+adblock-dns installed. Default: listens on 127.0.0.1:553, blocks ads,
+forwards everything else to Google DNS. Autostart on boot is enabled.
+
+  1. Review /opt/etc/adblock-dns/adblock-dns.conf (upstream, port, lists).
+  2. Start it:  /opt/etc/init.d/S56adblock-dns start
+  3. Check it (busybox nslookup cannot set a port, so use dig):
+         opkg install bind-dig
+         dig @127.0.0.1 -p 553 doubleclick.net +short   -> 0.0.0.0
+         dig @127.0.0.1 -p 553 ya.ru +short             -> real IP
+
+  4. Point the router at it. In the Keenetic CLI (telnet/ssh to the router
+     itself, not the Entware SSH on port 222). Port goes after "#":
+         show ip name-server            (see what is configured now)
+         no ip name-server              (drop the current list)
+         ip name-server 127.0.0.1#553
+         system configuration save
+     Dropping the other entries matters: Keenetic queries all configured
+     servers in parallel, so any public DNS left in the list will happily
+     resolve the ads this server blocks.
+     Custom ports need firmware 2.14 or newer.
+
+The built-in DNS proxy keeps port 53, so if this service ever stops the LAN
+still resolves names - just without ad blocking.
+
+Service control:
+  /opt/etc/init.d/S56adblock-dns start|stop|restart|check
+
+Refresh downloaded blocklists (optional, needs BLOCKLIST_URLS set):
+  adblock-dns-update
+
+Watch queries and blocked domains (log is capped by LOG_MAX_KB):
+  tail -f /opt/var/log/adblock-dns.log
+  adblock-dns-update stats      # cache hit/miss counters into the log
+
+EOF
+exit 0

@@ -1,0 +1,4 @@
+#!/bin/sh
+
+[ -x /opt/etc/init.d/S56adblock-dns ] && /opt/etc/init.d/S56adblock-dns stop
+exit 0

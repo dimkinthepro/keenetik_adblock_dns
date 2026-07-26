@@ -1,0 +1,171 @@
+#!/bin/sh
+# adblock-dns-blacklist [etc-dir]
+#   Rebuilds <etc-dir>/blacklist.txt from <etc-dir>/blacklist-source/:
+#   domains from "manual.txt" first, then everything fetched from the *.source
+#   definitions. etc-dir defaults to /opt/etc/adblock-dns.
+set -e
+
+ETC_DIR="${1:-/opt/etc/adblock-dns}"
+SRC_DIR="$ETC_DIR/blacklist-source"
+MANUAL="$SRC_DIR/manual.txt"
+OUT="$ETC_DIR/blacklist.txt"
+TMP="${TMPDIR:-/tmp}/adblock-dns-blacklist.$$"
+
+log() {
+    echo "adblock-dns: $1"
+}
+
+fail() {
+    log "ERROR: $1" >&2
+    exit 1
+}
+
+count() {
+    wc -l < "$1" | tr -d ' '
+}
+
+fetch() {
+    if command -v curl >/dev/null 2>&1; then
+        curl -sSL "$1"
+    else
+        wget -q -O - "$1"
+    fi
+}
+
+# Reads a hosts-file / domain-per-line list on stdin, prints bare domains.
+parse_domains() {
+    sed 's/\r//' | awk '
+        {
+            sub(/#.*/, "")
+            if (NF == 0) next
+            d = ""
+            if (NF >= 2 && ($1 == "0.0.0.0" || $1 == "127.0.0.1")) d = $2
+            else if (NF == 1) d = $1
+            d = tolower(d)
+            if (d ~ /^[a-z0-9._-]+\.[a-z0-9-]+$/ && d != "localhost.localdomain") print d
+        }' | sort -u
+}
+
+fetch_hosts() {
+    fetch "$1" | parse_domains
+}
+
+# v2fly/domain-list-community: resolves "include:" recursively and skips
+# regexp:/keyword: entries - dnsmasq cannot match them.
+fetch_v2fly() {
+    url="$1"
+    list="$2"
+    dir="$TMP/v2fly"
+    rm -rf "$dir"
+    mkdir -p "$dir"
+    fetch "$url" | tar -xz -C "$dir" || return 1
+    data="$(find "$dir" -type d -name data | head -1)"
+    [ -n "$data" ] || return 1
+    awk -v data="$data" -v root="$list" '
+        # "include:google @ads" pulls in only the entries of data/google tagged
+        # @ads, not the whole file - without honouring that filter the list
+        # swallows entire sites (google.com, vk.com, ...) instead of their ad
+        # subdomains. An include without an attribute inherits the current one.
+        function process(name, attr,
+                         line, f, key, n, parts, head, j, tagged, child, sub_attr) {
+            key = name SUBSEP attr
+            if (key in seen) return
+            seen[key] = 1
+            f = data "/" name
+            while ((getline line < f) > 0) {
+                sub(/#.*/, "", line)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+                if (line == "") continue
+                n = split(line, parts, /[[:space:]]+/)
+                head = parts[1]
+
+                if (head ~ /^include:/) {
+                    child = substr(head, 9)
+                    sub_attr = (n >= 2 && parts[2] ~ /^@/) ? substr(parts[2], 2) : attr
+                    process(child, sub_attr)
+                    continue
+                }
+                if (head ~ /^(regexp|keyword):/) continue
+
+                if (attr != "") {
+                    tagged = 0
+                    for (j = 2; j <= n; j++)
+                        if (parts[j] == "@" attr) tagged = 1
+                    if (!tagged) continue
+                }
+
+                if (head ~ /^full:/) print substr(head, 6)
+                else print head
+            }
+            close(f)
+        }
+        BEGIN { process(root, "") }
+    ' </dev/null | parse_domains
+}
+
+[ -d "$SRC_DIR" ] || fail "source dir $SRC_DIR not found"
+
+mkdir -p "$TMP"
+trap 'rm -rf "$TMP"' EXIT
+
+all="$TMP/all"
+: > "$all"
+fetched=0
+
+for src in "$SRC_DIR"/*.source; do
+    [ -f "$src" ] || continue
+    name="$(basename "$src" .source)"
+    TYPE=""
+    URL=""
+    LIST=""
+    . "$src"
+    [ -n "$URL" ] || { log "WARNING: $name: URL is not set, skipped" >&2; continue; }
+
+    log "fetching $name (${TYPE:-hosts})"
+    out="$TMP/src.out"
+    : > "$out"
+    case "${TYPE:-hosts}" in
+        v2fly) fetch_v2fly "$URL" "${LIST:-category-ads-all}" > "$out" || : ;;
+        hosts) fetch_hosts "$URL" > "$out" || : ;;
+        *)     log "WARNING: $name: unknown TYPE '$TYPE', skipped" >&2; continue ;;
+    esac
+
+    if [ -s "$out" ]; then
+        cat "$out" >> "$all"
+        fetched=$((fetched + 1))
+        log "$name: $(count "$out") domains"
+    else
+        log "WARNING: $name: nothing fetched" >&2
+    fi
+done
+
+[ "$fetched" -gt 0 ] || fail "no source fetched, keeping previous $OUT"
+
+manual="$TMP/manual"
+rest="$TMP/rest"
+if [ -f "$MANUAL" ]; then
+    parse_domains < "$MANUAL" > "$manual"
+else
+    : > "$manual"
+fi
+
+# Manual entries go on top, so drop their duplicates from the fetched part.
+sort -u "$all" > "$all.sorted"
+if [ -s "$manual" ]; then
+    grep -vxF -f "$manual" "$all.sorted" > "$rest" || :
+else
+    cp "$all.sorted" "$rest"
+fi
+
+{
+    echo "# Список генерируется автоматически, добавляйте домены в blacklist-source/manual.txt"
+    echo "# Пересборка: adblock-dns-blacklist"
+    echo "# $(date +%Y-%m-%d): вручную $(count "$manual"), из источников ($fetched) $(count "$rest")."
+    echo "# --- manual ---"
+    cat "$manual"
+    echo "# --- sources ---"
+    cat "$rest"
+} > "$OUT.new"
+mv "$OUT.new" "$OUT"
+
+log "blacklist rebuilt: $OUT, $(($(count "$manual") + $(count "$rest"))) domains"
